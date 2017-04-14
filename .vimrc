@@ -156,10 +156,10 @@ nnoremap <Leader>a :Ag!<Space>
 
 inoremap <Tab> <c-r>=InsertTabWrapper()<cr>
 inoremap <S-Tab> <c-n>
-inoremap jk <Esc>
-nnoremap jk <Esc>
-cnoremap jk <Esc>
-vnoremap jk <Esc>
+inoremap ;; <Esc>
+nnoremap ;; <Esc>
+cnoremap ;; <Esc>
+vnoremap ;; <Esc>
 
 " Switch between the last two files
 nnoremap <leader><leader> <c-^>
@@ -172,11 +172,6 @@ nnoremap <Down> :echoe "Use j"<CR>
 
 inoremap <C-k> <Up>
 inoremap <C-j> <Down>
-
-" vim-rspec mappings
-nnoremap <Leader>t :call RunCurrentSpecFile()<CR>
-nnoremap <Leader>s :call RunNearestSpec()<CR>
-nnoremap <Leader>l :call RunLastSpec()<CR>
 
 " Run commands that require an interactive shell
 nnoremap <Leader>r :RunInInteractiveShell<space>

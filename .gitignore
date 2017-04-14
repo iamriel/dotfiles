@@ -1,0 +1,8 @@
+/.emacs.d/elpa
+/.emacs.d/eshell/history
+
+custom.el
+custom.el~
+
+*.cache
+*.eld
