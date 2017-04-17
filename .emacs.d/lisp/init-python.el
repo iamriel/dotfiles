@@ -4,13 +4,19 @@
 ;; It's just a matter of code.
 ;;
 ;;; Code:
+(use-package jedi :ensure t)
+(add-hook 'python-mode-hook 'jedi:setup)
+;(setq jedi:complete-on-dot t)
+
 (use-package virtualenvwrapper
   :ensure t
   :config
   (venv-initialize-interactive-shells)
   (venv-initialize-eshell)
   (setq venv-location
-        (expand-file-name "~/Users/light/.virtualenvs/")))
+        (expand-file-name "~/.virtualenvs/")))
+
+(use-package company-jedi :ensure t)
 
 (add-hook 'python-mode-hook
   (lambda ()
@@ -30,6 +36,7 @@
 
   ;; Additional settings follow.
   ;(add-to-list 'write-file-functions 'delete-trailing-whitespace)
+  (add-to-list 'company-backends 'company-jedi)
   ))
 
 (provide 'init-python)
