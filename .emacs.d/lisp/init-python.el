@@ -4,13 +4,6 @@
 ;; It's just a matter of code.
 ;;
 ;;; Code:
-(defun air--delete-trailing-whitespace-in-proc-and-org-files ()
-  "Delete trailing whitespace if the buffer is in `prog-' or `org-mode'."
-  (if (or (derived-mode-p 'prog-mode)
-          (derived-mode-p 'org-mode))
-      (delete-trailing-whitespace)))
-(add-to-list 'write-file-functions 'air--delete-trailing-whitespace-in-proc-and-org-files)
-
 (use-package virtualenvwrapper
   :ensure t
   :config
@@ -39,5 +32,5 @@
   ;(add-to-list 'write-file-functions 'delete-trailing-whitespace)
   ))
 
-(provide 'python-mode)
+(provide 'init-python)
 ;;; init-python.el ends here

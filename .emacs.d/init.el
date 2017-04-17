@@ -104,7 +104,7 @@
 ;(require 'init-gtags)
 (require 'init-theme)
 (require 'init-tdd)
-(require 'python-mode)
+(require 'init-python)
 (require 'python-test)
 
 (add-hook 'compilation-filter-hook 'python-test-track-pdb-prompt)
