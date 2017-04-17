@@ -7,7 +7,6 @@
 ;;
 ;;; Code:
 
-
 ;; Leave this here, or package.el will just add it again.
 (package-initialize)
 
@@ -34,6 +33,7 @@
 
 (add-to-list 'package-archives '("elpy" . "http://jorgenschaefer.github.io/packages/"))
 
+(require 'init-bell)
 (require 'init-utils)
 (require 'init-elpa)
 
@@ -45,6 +45,9 @@
   (require 'use-package))
 
 (elpy-enable)
+(setq elpy-test-django-runner-command '("./manage.py" "test"))
+(setq elpy-test-django-with-manage t)
+
 
 (setq inhibit-splash-screen t
       inhibit-startup-message t
@@ -54,7 +57,7 @@
 (when (boundp 'scroll-bar-mode)
   (scroll-bar-mode -1))
 (show-paren-mode 1)
-(global-linum-mode 1)
+;(global-linum-mode 1)
 (setq visual-line-fringe-indicators '(left-curly-arrow right-curly-arrow))
 (setq-default left-fringe-width nil)
 (setq-default indicate-empty-lines t)
@@ -69,8 +72,24 @@
 (setq large-file-warning-threshold nil)
 (setq split-width-threshold nil)
 (setq custom-safe-themes t)
-(column-number-mode t)
+;(column-number-mode t)
 (setq tab-width 4)
+
+
+(defun my-minibuffer-setup-hook ()
+  "Increase GC cons threshold."
+  (setq gc-cons-threshold most-positive-fixnum))
+
+(defun my-minibuffer-exit-hook ()
+  "Set GC cons threshold to its default value."
+  (setq gc-cons-threshold 1000000))
+
+(add-hook 'minibuffer-setup-hook #'my-minibuffer-setup-hook)
+(add-hook 'minibuffer-exit-hook #'my-minibuffer-exit-hook)
+
+(defvar backup-dir "~/.emacs.d/backups/")
+(setq backup-directory-alist (list (cons "." backup-dir)))
+(setq make-backup-files nil)
 
 ;; Allow confusing functions
 (put 'narrow-to-region 'disabled nil)
@@ -84,13 +103,23 @@
 (require 'init-evil)
 ;(require 'init-gtags)
 (require 'init-theme)
+(require 'init-tdd)
 (require 'python-mode)
+(require 'python-test)
+
+(add-hook 'compilation-filter-hook 'python-test-track-pdb-prompt)
 
 ;; Utilities
 (use-package s
   :ensure t
   :defer 1)
 (use-package dash :ensure t)
+
+(use-package evil-escape
+  :ensure t
+  :config
+  (evil-escape-mode 1)
+  (setq evil-escape-key-sequence "jk"))
 
 (use-package visual-fill-column :ensure t)
 
@@ -170,4 +199,5 @@
     (defalias #'forward-evil-word #'forward-evil-symbol))
 
 (provide 'init)
+
 ;;; init.el ends here

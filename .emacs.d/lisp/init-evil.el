@@ -35,7 +35,7 @@
 
 (defun air--config-evil ()
   "Configure evil mode."
-  (line-number-mode 1)
+  ;(line-number-mode 1)
 
   ;; Use Emacs state in these additional modes.
   (dolist (mode '(ag-mode

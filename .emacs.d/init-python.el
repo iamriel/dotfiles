@@ -1,3 +1,9 @@
+;;; init-python.el -- Python configuration
+;;; Commentary:
+;;
+;; It's just a matter of code.
+;;
+;;; Code:
 (defun air--delete-trailing-whitespace-in-proc-and-org-files ()
   "Delete trailing whitespace if the buffer is in `prog-' or `org-mode'."
   (if (or (derived-mode-p 'prog-mode)
@@ -14,22 +20,24 @@
         (expand-file-name "~/Users/light/.virtualenvs/")))
 
 (add-hook 'python-mode-hook
-          (lambda ()
-            ;; I'm rudely redefining this function to do a comparison of `point'
-            ;; to the end marker of the `comint-last-prompt' because the original
-            ;; method of using `looking-back' to match the prompt was never
-            ;; matching, which hangs the shell startup forever.
-            (defun python-shell-accept-process-output (process &optional timeout regexp)
-              "Redefined to actually work."
-              (let ((regexp (or regexp comint-prompt-regexp)))
-                (catch 'found
-                  (while t
-                    (when (not (accept-process-output process timeout))
-                      (throw 'found nil))
-                    (when (= (point) (cdr (python-util-comint-last-prompt)))
-                      (throw 'found t))))))
+  (lambda ()
+  ;; I'm rudely redefining this function to do a comparison of `point'
+  ;; to the end marker of the `comint-last-prompt' because the original
+  ;; method of using `looking-back' to match the prompt was never
+  ;; matching, which hangs the shell startup forever.
+  (defun python-shell-accept-process-output (process &optional timeout regexp)
+      "Redefined to actually work."
+      (let ((regexp (or regexp comint-prompt-regexp)))
+      (catch 'found
+          (while t
+          (when (not (accept-process-output process timeout))
+              (throw 'found nil))
+          (when (= (point) (cdr (python-util-comint-last-prompt)))
+              (throw 'found t))))))
 
-            ;; Additional settings follow.
-            (add-to-list 'write-file-functions 'delete-trailing-whitespace)))
+  ;; Additional settings follow.
+  ;(add-to-list 'write-file-functions 'delete-trailing-whitespace)
+  ))
 
 (provide 'python-mode)
+;;; init-python.el ends here
