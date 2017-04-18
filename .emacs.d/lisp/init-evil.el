@@ -9,28 +9,25 @@
     "."  'jedi:goto-definition-pop-marker
     ":"  'eval-expression
     "?"  'jedi:show-doc
-    "aa" 'align-regexp
-    "a=" 'my-align-single-equals
     "b"  'helm-mini             ;; Switch to another buffer
     "B"  'magit-blame-toggle
-    "c"  'comment-dwim
+    "c"  'comment-line
+    "C"  'comment-or-uncomment-region
     "d"  'kill-this-buffer
-    "D"  'open-current-line-in-codebase-search
     "f"  'helm-imenu            ;; Jump to function in buffer
     "g"  'magit-status
     "h"  'fontify-and-browse    ;; HTML-ize the buffer and browse the result
     "im" 'highlight-indentation-mode
+    "mc" 'magit-commit
     "l"  'whitespace-mode       ;; Show invisible characters
-    "nn" 'air-narrow-dwim       ;; Narrow to region and enter normal mode
-    "nw" 'widen
     "o"  'delete-other-windows  ;; C-w o
-    "p"  'helm-show-kill-ring
-    "s"  'helm-do-grep-ag            ;; Ag search from project's root
-    "r"  'chrome-reload
+    "p"  'magit-push-to-remote
+    "P"  'magit-push
+    "s"  'helm-do-ag-project-root            ;; Ag search from project's root
     "R"  (lambda () (interactive) (font-lock-fontify-buffer) (redraw-display))
     "S"  'delete-trailing-whitespace
-    "t"  'gtags-reindex
-    "T"  'gtags-find-tag
+    "t"  'elpy-test-django-runner
+    "v"  'venv-workon
     "w"  'save-buffer
     "x"  'helm-M-x
     "y"  'yank-to-x-clipboard))
