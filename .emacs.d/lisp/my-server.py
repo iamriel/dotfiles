@@ -3,7 +3,7 @@ import logging
 from epc.server import EPCServer
 
 
-def echo_server(address='localhost', port=0, logfilename='python-epc.log'):
+def echo_server(address='localhost', port=0, logfilename='/Users/light/.emacs.d/python-epc.log'):
     server = EPCServer((address, port), log_traceback=True)
     server.logger.setLevel(logging.DEBUG)
 
