@@ -44,10 +44,6 @@
 (eval-when-compile
   (require 'use-package))
 
-(elpy-enable)
-(setq elpy-test-django-runner-command '("./manage.py" "test"))
-(setq elpy-test-django-with-manage t)
-
 
 (setq inhibit-splash-screen t
       inhibit-startup-message t
@@ -100,12 +96,23 @@
 (require 'init-fonts)
 (require 'init-flycheck)
 (require 'init-dired)
+(require 'init-epc)
 (require 'init-evil)
 ;(require 'init-gtags)
 (require 'init-theme)
 (require 'init-tdd)
 (require 'init-python)
 (require 'python-test)
+
+
+(use-package elpy
+  :init
+  (elpy-enable)
+  :config
+  (setq elpy-rpc-backend "jedi")
+  (setq elpy-test-django-runner-command '("./manage.py" "test"))
+  (setq elpy-test-django-with-manage t)
+  )
 
 (add-hook 'compilation-filter-hook 'python-test-track-pdb-prompt)
 
@@ -131,7 +138,8 @@
   :ensure t
   :config
   (exec-path-from-shell-initialize)
-  (exec-path-from-shell-copy-env "GOPATH"))
+  (exec-path-from-shell-copy-env "PYTHONPATH")
+  )
 
 (use-package helm
   :ensure t

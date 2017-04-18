@@ -4,9 +4,11 @@
 ;; It's just a matter of code.
 ;;
 ;;; Code:
-(use-package jedi :ensure t)
-(add-hook 'python-mode-hook 'jedi:setup)
-;(setq jedi:complete-on-dot t)
+(use-package company-jedi
+  :ensure t
+  :config
+  (add-hook 'python-mode-hook 'jedi:setup)
+  (setq jedi:complete-on-dot t))
 
 (use-package virtualenvwrapper
   :ensure t
@@ -15,8 +17,6 @@
   (venv-initialize-eshell)
   (setq venv-location
         (expand-file-name "~/.virtualenvs/")))
-
-(use-package company-jedi :ensure t)
 
 (add-hook 'python-mode-hook
   (lambda ()
@@ -37,6 +37,7 @@
   ;; Additional settings follow.
   ;(add-to-list 'write-file-functions 'delete-trailing-whitespace)
   (add-to-list 'company-backends 'company-jedi)
+  ;(add-to-list 'ac-sources 'ac-source-jedi-direct)
   ))
 
 (provide 'init-python)

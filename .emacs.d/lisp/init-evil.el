@@ -5,9 +5,10 @@
   "Configure evil leader mode."
   (evil-leader/set-leader ",")
   (evil-leader/set-key
-    ","  'other-window
-    "."  'mode-line-other-buffer
+    ","  'jedi:goto-definition
+    "."  'jedi:goto-definition-pop-marker
     ":"  'eval-expression
+    "?"  'jedi:show-doc
     "aa" 'align-regexp
     "a=" 'my-align-single-equals
     "b"  'helm-mini             ;; Switch to another buffer
@@ -18,6 +19,7 @@
     "f"  'helm-imenu            ;; Jump to function in buffer
     "g"  'magit-status
     "h"  'fontify-and-browse    ;; HTML-ize the buffer and browse the result
+    "im" 'highlight-indentation-mode
     "l"  'whitespace-mode       ;; Show invisible characters
     "nn" 'air-narrow-dwim       ;; Narrow to region and enter normal mode
     "nw" 'widen

@@ -1,6 +1,8 @@
+/.emacs.d/.python-environments
 /.emacs.d/elpa
 /.emacs.d/eshell/history
-/.emacs.d/.python-environments
+/.emacs.d/games
+/.emacs.d/python-epc.log
 
 custom.el
 custom.el~
