@@ -1,5 +1,4 @@
 ;;; Character sets
-
 (defcustom sanityinc/force-default-font-for-symbols nil
   "When non-nil, force Emacs to use your default font for symbols."
   :type 'boolean)
@@ -46,7 +45,7 @@ by the :height face attribute."
   (if (fboundp 'powerline-reset)
       (powerline-reset)))
 
-(bind-key (kbd "s-=") 'sanityinc/increase-default-font-height)
-(bind-key (kbd "s--") 'sanityinc/decrease-default-font-height)
+(bind-key (kbd "C-=") 'sanityinc/increase-default-font-height)
+(bind-key (kbd "C--") 'sanityinc/decrease-default-font-height)
 
 (provide 'init-fonts)

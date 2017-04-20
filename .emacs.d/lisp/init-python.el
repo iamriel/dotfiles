@@ -38,6 +38,7 @@
   ;(add-to-list 'write-file-functions 'delete-trailing-whitespace)
   (add-to-list 'company-backends 'company-jedi)
   ;(add-to-list 'ac-sources 'ac-source-jedi-direct)
+  (highlight-indentation-mode 0)
   ))
 
 (provide 'init-python)

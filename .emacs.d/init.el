@@ -48,6 +48,7 @@
 (setq inhibit-splash-screen t
       inhibit-startup-message t
       inhibit-startup-echo-area-message t)
+
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (when (boundp 'scroll-bar-mode)
@@ -150,6 +151,7 @@
   (setq helm-buffers-fuzzy-matching t)
   (setq helm-autoresize-mode t)
   (setq helm-buffer-max-length 40)
+  ;; (setq helm-split-window-in-side-p t)
   (define-key helm-map (kbd "S-SPC") 'helm-toggle-visible-mark)
   (define-key helm-map (kbd "C-j") 'helm-next-line)
   (define-key helm-map (kbd "C-k") 'helm-previous-line))
@@ -160,8 +162,8 @@
   :init
   (global-company-mode)
   :config
-  ;(setq company-tooltip-common-selection ((t (:inherit company-tooltip-selection :background "yellow2" :foreground "#c82829"))))
-  ;(setq company-tooltip-selection ((t (:background "yellow2"))))
+  ; (setq company-tooltip-common-selection ((t (:inherit company-tooltip-selection :background "yellow2" :foreground "#c82829"))))
+  ; (setq company-tooltip-selection ((t (:background "yellow2"))))
   (setq company-idle-delay 0.2)
   (setq company-selection-wrap-around t)
   (define-key company-active-map [tab] 'company-complete)

@@ -15,10 +15,14 @@
     "C"  'comment-or-uncomment-region
     "d"  'kill-this-buffer
     "f"  'helm-imenu            ;; Jump to function in buffer
-    "g"  'magit-status
     "h"  'fontify-and-browse    ;; HTML-ize the buffer and browse the result
     "im" 'highlight-indentation-mode
-    "mc" 'magit-commit
+    "mb" 'magit-branch-and-checkout
+    "mc" 'magit-checkout
+    "mC" 'magit-commit
+    "ml" 'magit-log
+    "mm" 'magit-merge
+    "ms" 'magit-status
     "l"  'whitespace-mode       ;; Show invisible characters
     "o"  'delete-other-windows  ;; C-w o
     "p"  'magit-push-to-remote
@@ -75,8 +79,8 @@
   (evil-define-key 'normal global-map (kbd "<down>")  'evil-next-visual-line)
   (evil-define-key 'normal global-map (kbd "<up>")    'evil-previous-visual-line)
   (evil-define-key 'normal global-map (kbd "-")       'helm-find-files)
-  ;(evil-define-key 'normal global-map (kbd "C--")     'air-dired-buffer-dir-or-home)
-  (evil-define-key 'normal global-map (kbd "C--")     'my-dired-create-file)
+  ;; (evil-define-key 'normal global-map (kbd "C--")     'air-dired-buffer-dir-or-home)
+  ;; (evil-define-key 'normal global-map (kbd "C--")     'my-dired-create-file)
   (evil-define-key 'normal global-map (kbd "C-`")     (lambda ()
                                                         (interactive)
                                                         (dired (expand-file-name "~"))))
