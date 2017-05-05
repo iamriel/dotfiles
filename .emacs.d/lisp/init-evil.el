@@ -14,8 +14,10 @@
     "c"  'comment-line
     "C"  'comment-or-uncomment-region
     "d"  'kill-this-buffer
+    "es" 'eshell
     "f"  'helm-imenu            ;; Jump to function in buffer
     "h"  'fontify-and-browse    ;; HTML-ize the buffer and browse the result
+    "ic" 'projectile-invalidate-cache
     "im" 'highlight-indentation-mode
     "mb" 'magit-branch-and-checkout
     "mc" 'magit-checkout
@@ -23,6 +25,8 @@
     "ml" 'magit-log
     "mm" 'magit-merge
     "ms" 'magit-status
+    "n"  'neotree-toggle
+    "N"  'neotree-project-dir
     "l"  'whitespace-mode       ;; Show invisible characters
     "o"  'delete-other-windows  ;; C-w o
     "p"  'magit-push-to-remote
