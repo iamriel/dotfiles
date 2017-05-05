@@ -16,6 +16,7 @@
     "d"  'kill-this-buffer
     "es" 'eshell
     "f"  'helm-imenu            ;; Jump to function in buffer
+    "F"  'set-frame-font
     "h"  'fontify-and-browse    ;; HTML-ize the buffer and browse the result
     "ic" 'projectile-invalidate-cache
     "im" 'highlight-indentation-mode
