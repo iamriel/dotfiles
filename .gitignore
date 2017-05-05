@@ -1,9 +1,9 @@
-/.emacs.d/.python-environments
-/.emacs.d/elpa
-/.emacs.d/eshell
-/.emacs.d/games
-/.emacs.d/python-epc.log
-/.emacs.d/recentf
+/emacs.d/.python-environments
+/emacs.d/elpa
+/emacs.d/eshell
+/emacs.d/games
+/emacs.d/python-epc.log
+/emacs.d/recentf
 
 custom.el
 custom.el~
