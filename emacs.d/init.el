@@ -110,6 +110,8 @@
 (require 'python-test)
 
 (use-package yaml-mode :ensure t :defer t)
+(use-package vimrc-mode :ensure t :defer t)
+(add-to-list 'auto-mode-alist '("\\.vim\\(rc\\)?\\'" . vimrc-mode))
 
 (use-package elpy
   :init
