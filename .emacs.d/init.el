@@ -47,7 +47,9 @@
 
 (setq inhibit-splash-screen t
       inhibit-startup-message t
-      inhibit-startup-echo-area-message t)
+      inhibit-startup-echo-area-message t
+      scroll-step 1
+      scroll-conservatively 1000)
 
 (menu-bar-mode -1)
 (tool-bar-mode -1)
@@ -94,17 +96,20 @@
 
 ;;; Larger package-specific configurations.
 (require 'diminish)
+(require 'init-angular)
 (require 'init-fonts)
 (require 'init-flycheck)
 (require 'init-dired)
 (require 'init-epc)
 (require 'init-evil)
+(require 'init-neotree)
 ;(require 'init-gtags)
 (require 'init-theme)
 (require 'init-tdd)
 (require 'init-python)
 (require 'python-test)
 
+(use-package yaml-mode :ensure t :defer t)
 
 (use-package elpy
   :init
@@ -113,9 +118,33 @@
   (setq elpy-rpc-backend "jedi")
   (setq elpy-test-django-runner-command '("./manage.py" "test"))
   (setq elpy-test-django-with-manage t)
+  (setq python-shell-interpreter "ipython")
   )
 
 (add-hook 'compilation-filter-hook 'python-test-track-pdb-prompt)
+
+(use-package emmet-mode
+  :ensure t
+  :config
+  (add-hook 'sgml-mode-hook 'emmet-mode) ;; Auto-start on any markup modes
+  (add-hook 'css-mode-hook  'emmet-mode) ;; enable Emmet's css abbreviation.
+  (setq emmet-move-cursor-between-quotes t) ;; default nil
+  )
+
+;;; Emmet mode:
+(add-hook 'emmet-mode-hook
+  (lambda ()
+    (evil-define-key 'insert emmet-mode-keymap (kbd "C-S-l") 'emmet-next-edit-point)
+    (evil-define-key 'insert emmet-mode-keymap (kbd "C-S-h") 'emmet-prev-edit-point)
+  ))
+
+(use-package ansible
+  :ensure t
+  :config
+  (setq ansible::vault-password-file "/Users/light/.config/ansible/vault_pass.txt")
+  (add-hook 'yaml-mode-hook '(lambda () (ansible 1)))
+  (add-hook 'ansible-hook 'ansible::auto-decrypt-encrypt)
+  )
 
 ;; Utilities
 (use-package s
@@ -166,6 +195,8 @@
   ; (setq company-tooltip-selection ((t (:background "yellow2"))))
   (setq company-idle-delay 0.2)
   (setq company-selection-wrap-around t)
+  ;; aligns annotation to the right hand side
+  (setq company-tooltip-align-annotations t)
   (define-key company-active-map [tab] 'company-complete)
   (define-key company-active-map (kbd "C-n") 'company-select-next)
   (define-key company-active-map (kbd "C-p") 'company-select-previous))
@@ -180,7 +211,7 @@
   :ensure t
   :defer 1
   :config
-  (projectile-global-mode)
+  (projectile-mode)
   (setq projectile-enable-caching t))
 
 (use-package helm-projectile
@@ -208,6 +239,14 @@
 (with-eval-after-load 'evil
     (defalias #'forward-evil-word #'forward-evil-symbol))
 
-(provide 'init)
+;; Global Keys
+(global-set-key (kbd "C-c b") 'switch-to-prev-buffer)
+(global-set-key (kbd "C-c n") 'switch-to-next-buffer)
+(global-set-key (kbd "C-h") 'windmove-left)
+(global-set-key (kbd "C-j") 'windmove-down)
+(global-set-key (kbd "C-k") 'windmove-up)
+(global-set-key (kbd "C-l") 'windmove-right)
 
+
+(provide 'init)
 ;;; init.el ends here
