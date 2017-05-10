@@ -14,6 +14,7 @@
     "c"  'comment-line
     "C"  'comment-or-uncomment-region
     "d"  'kill-this-buffer
+    "D"  'magit-discard
     "es" 'eshell
     "f"  'helm-imenu            ;; Jump to function in buffer
     "F"  'set-frame-font
@@ -79,6 +80,16 @@
   (evil-define-key 'insert global-map (kbd "C-j") (simulate-key-press "<down>"))
   (evil-define-key 'insert global-map (kbd "C-k") (simulate-key-press "<up>"))
   (evil-define-key 'normal global-map (kbd ";") (simulate-key-press ":"))
+
+  (evil-set-initial-state 'magit-mode 'insert)
+  (evil-set-initial-state 'magit-status-mode 'insert)
+  (evil-set-initial-state 'magit-diff-mode 'insert)
+  (evil-set-initial-state 'magit-log-mode 'insert)
+  (evil-define-key 'normal magit-status-mode-map (kbd "j") (simulate-key-press "<down>"))
+  (evil-define-key 'insert magit-status-mode-map (kbd "j") (simulate-key-press "<down>"))
+  (evil-define-key 'normal magit-status-mode-map (kbd "k") (simulate-key-press "<up>"))
+  (evil-define-key 'insert magit-status-mode-map (kbd "k") (simulate-key-press "<up>"))
+  (evil-define-key 'insert magit-status-mode-map (kbd "C-SPC") (simulate-key-press "<escape>"))
 
   ;; Global bindings.
   (evil-define-key 'normal global-map (kbd "<down>")  'evil-next-visual-line)
