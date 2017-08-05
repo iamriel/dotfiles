@@ -1,0 +1,42 @@
+'use strict';
+
+var paths = {};
+
+// Folder naming conventions
+paths.assetsFolderName  = 'static/theme';
+paths.imagesFolderName  = 'images';
+paths.fontsFolderName   = 'fonts';
+paths.stylesFolderName  = 'stylesheets';
+paths.scriptsFolderName = 'javascripts';
+paths.vendorFolderName  = 'vendor';
+paths.compileFolderName = 'compiled';
+
+// Directory locations
+paths.assetsDir         = paths.assetsFolderName + '/';
+
+// Source asset file locations
+paths.scssFiles         = paths.assetsDir + paths.stylesFolderName + '/';
+paths.jsFiles           = paths.assetsDir + paths.scriptsFolderName + '/';
+paths.imageFiles        = paths.assetsDir + paths.imagesFolderName + '/';
+paths.fontFiles         = paths.assetsDir + paths.fontsFolderName + '/';
+paths.vendorFiles       = paths.assetsDir + paths.vendorFolderName + '/';
+
+// Compiled file locations
+paths.jsCompiledFiles     = paths.assetsDir + paths.compileFolderName + '/' + paths.scriptsFolderName + '/';
+paths.imageCompiledFiles  = paths.assetsDir + paths.compileFolderName + '/' + paths.imagesFolderName + '/'; 
+
+// Global patterns by file type
+paths.scssPattern        = '*.scss';
+paths.jsPattern          = '*.js';
+paths.imagePattern       = '*.+(jpg|JPG|jpeg|JPEG|png|PNG|svg|SVG|gif|GIF|webp|WEBP|tif|TIF)';
+paths.phpPattern         = '/*.php';
+paths.fontPattern        = '*.+(eot,EOT,otf,OTF,ttf,TTF,woff,WOFF,woff2,WOFF2)';
+
+// File globals
+paths.phpFilesGlob       = paths.phpPattern;
+paths.imageFilesGlob     = paths.imageFiles + paths.imagePattern;
+paths.fontFilesGlob      = paths.fontFiles + paths.fontPattern;
+paths.scssFilesGlob      = paths.scssFiles + paths.scssPattern;
+paths.jsFilesGlob        = paths.jsFiles + paths.jsPattern;
+
+module.exports = paths;

@@ -1,0 +1,119 @@
+import itertools
+
+from django.db.models import Prefetch
+from django.utils import timezone
+
+from celery import chain as celery_chain
+
+from .tasks import (
+    send_service_charge_owner_notification,
+    send_service_charge_receipt,
+)
+
+
+def get_language_pairs_data():
+    """
+    Returns a list of data for the language pairs report.
+
+    All elements in the list are tuples in the form of::
+
+        (<service_id>, <service_name>, <source_locale_code>, <target_locale_code>)
+    """
+    from liox_on_demand.od_app.models import Locale
+    from liox_on_demand.od_services.models import Service
+
+    pairs = []
+    locale_qs = Locale.objects.only('code')
+    services = (Service.objects.all()
+                               .prefetch_related(
+                                   Prefetch('available_source_locales', queryset=locale_qs),
+                                   Prefetch('available_target_locales', queryset=locale_qs)))
+
+    for service in services:
+        service_pairs = itertools.product(
+            service.get_many_to_many_fallback('available_source_locales').all(),
+            service.get_many_to_many_fallback('available_target_locales').all()
+        )
+        pairs.extend([
+            (service.id, service.name, p[0].code, p[1].code)
+            for p in service_pairs if p[0].code != p[1].code
+        ])
+
+    # Sort by service name, source locale code, and target locale code
+    pairs.sort(key=lambda t: (t[1], t[2], t[3]))
+    return pairs
+
+
+def format_year_week(date, default=''):
+    """
+    Formats year-week from date/datetime argument
+    >>> import datetime
+    >>> format_year_week(datetime.datetime(2015, 8, 15, 0, 0, 0))
+    '2015-32'
+    >>> format_year_week(datetime.date(2015, 8, 1))
+    '2015-30'
+    >>> format_year_week(None)
+    ''
+    """
+    try:
+        return date.strftime("%Y-%W")
+    except AttributeError:
+        return default
+
+
+def get_job_report_status(job):
+    today = timezone.now()
+    if job.status == job.STATUS_COMPLETE:
+        return 'Complete'
+    elif job.status == job.STATUS_STARTED:
+        if job.due_date.day == today.day:
+            return 'Today'
+        elif job.due_date > today:
+            return 'Started'
+        elif job.due_date.day < today.day:
+            return 'Delayed'
+    elif job.status == job.STATUS_PARTIALLY_COMPLETE:
+        return 'Partially Complete'
+    return 'In Progress'
+
+
+def check_completion_on_time(quotes):
+    if not quotes:
+        return False
+
+    for quote in quotes:
+        for job in quote.jobs.all():
+            if job.due_date < job.completion_date:
+                return False
+    return True
+
+
+def send_service_charge_notifications(quote):
+    """
+    Executes `send_service_charge_receipt` if quote is purchased and
+    `send_service_charge_owner_notification` otherwise
+    """
+    if quote.is_purchased:
+        sender_task = send_service_charge_receipt
+
+        if send_to_staff:
+            event = NOTIFICATION_EVENT_SERVICE_CHARGE_RECEIPT_STAFF
+            recipients = quote.get_osm_emails()
+        else:
+            event = NOTIFICATION_EVENT_SERVICE_CHARGE_RECEIPT
+            recipients = [quote.owner.email]
+    else:
+        sender_task = send_service_charge_owner_notification
+
+    sender_task.si(quote.id)
+    sender_task.si(quote.id, send_to_staff=True)
+
+
+def generate_target_expected_filename(target_locale, source_id):
+    """
+    Creates a string for the expected filename of a source id and target_locale
+    """
+    voice = ""
+    if target_locale.voice != "None":
+        voice = "-{}".format(target_locale.voice.lower())
+    return "{}_{}{}".format(source_id, target_locale.code, voice)

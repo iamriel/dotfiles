@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: Load
+# key: load
+# --
+{% load $1 %}

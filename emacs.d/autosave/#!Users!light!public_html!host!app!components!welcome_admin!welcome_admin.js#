@@ -1,0 +1,107 @@
+'use strict';
+
+angular.module('components.welcomeadmin')
+    /*
+        Usage:
+            <welcomeadmin></welcomeadmin>
+     */
+
+    .component('welcomeadmin', {
+        templateUrl: 'app/components/welcome_admin/welcome_admin.php',
+        controller: "welcomeadmincontroller"
+    })//component
+
+    .controller('welcomeadmincontroller', ['$scope', '$http', '$interval', '$timeout', '$window', '$location', 'CONFIG', function ($scope, $http, $interval, $timeout, $window, $location, CONFIG) {
+        var user = JSON.parse($window.localStorage.getItem('user'));
+
+        if (!user) {
+            $location.path('/logout');
+        }
+        else if (user && !user.profile.is_host) {
+            $location.path('/logout');
+        }
+
+        var venue_id = $window.localStorage.getItem('venue_id');
+        var socket;
+
+        var fetchTeams = function(game_id) {
+            $http.get(CONFIG.API_URL + '/games/' + game_id + '/teams/')
+                .success(function(data){
+                    $scope.teams = data;
+                })
+                .error(function(data) {
+                    $scope.errors = 'Error in fetching data';
+                });
+        }
+
+        $http.get(CONFIG.API_URL + '/venues/' + venue_id + '/')
+            .success(function(data){
+                $scope.venue = data;
+            })
+            .error(function(data) {
+                $scope.errors = 'Error in fetching data';
+            });
+
+        $http({
+            method: 'POST',
+            url: CONFIG.API_URL + '/venues/' + venue_id + '/get_or_create_game/',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'JWT ' + $window.localStorage.getItem('token')
+            }
+        }).success(function (data, status, headers, config) {
+            var game_id = data.id;
+
+            $scope.game = data;
+            fetchTeams(game_id);
+
+            socket = new WebSocket(CONFIG.WS_URL + '/wsgame' + game_id);
+            socket.onmessage = function(e) {
+                fetchTeams(game_id);
+            }
+            socket.onopen = function() {
+                // socket.send("hello world");
+            }
+            // Call onopen directly if socket is already open
+            if (socket.readyState == WebSocket.OPEN) socket.onopen();
+        });
+
+
+        $scope.minutes = '10';
+        $scope.seconds = $scope.minutes * 60;
+        $scope.$watch('minutes', function () {
+            $scope.seconds = $scope.minutes * 60;
+        });
+
+        $scope.countdown = function () {
+            if ($scope.seconds <= 0) return;
+            $scope.countdownInterval = $interval(function () {
+                if ($scope.seconds <= 0) {
+                    $interval.cancel(countdownInterval);
+                }
+                $scope.seconds--;
+            }, 1000);
+        };
+
+        $scope.stop = function () {
+            $interval.cancel($scope.countdownInterval);
+        };
+
+        $scope.init = function () {
+            if ($scope.seconds <= 0) return;
+            $scope.countdownInterval = $interval(function () {
+                if ($scope.seconds <= 0) {
+                    $interval.cancel(countdownInterval);
+                }
+                $scope.seconds--;
+            }, 1000);
+        };
+    }])//controller
+
+
+ssh ubuntu@52.14.54.168
+cd trivianights
+git fetch origin
+git merge origin/master
+sudo systemctl restart gunicorn
+sudo nginx -t && sudo systemctl restart nginx

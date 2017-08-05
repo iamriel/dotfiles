@@ -1,0 +1,20 @@
+from .models import Game
+
+
+def update_equalizer(game_id):
+    game = Game.objects.get(id=game_id)
+    equalizers = [1, 3, 5, 7, 10]
+    current_score = -1
+
+    for team in game.get_team_scores():
+        if not team.game_score:
+            continue
+
+        if len(equalizers) > 1:
+            if current_score != team.game_score:
+                val = equalizers.pop()
+        else:
+            val = 1
+        team.equalizer = team.equalizer + val
+        team.save(update_fields=['equalizer'])
+        current_score = team.game_score

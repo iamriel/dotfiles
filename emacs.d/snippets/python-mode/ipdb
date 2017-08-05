@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: Ipdb
+# key: ipdb
+# --
+import ipdb; ipdb.set_trace(context=5);

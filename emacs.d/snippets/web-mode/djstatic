@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: djstatic
+# key: djstatic
+# --
+{% static '$0' %}

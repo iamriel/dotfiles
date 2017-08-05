@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: backwards
+# key: backwards
+# --
+def backwards(apps, schema_editor):
+    $1 = apps.get_model('$0', '$1')

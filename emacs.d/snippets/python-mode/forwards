@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: Forwards
+# key: forwards
+# --
+def forwards(apps, schema_editor):
+    $1 = apps.get_model('$2', '$1')

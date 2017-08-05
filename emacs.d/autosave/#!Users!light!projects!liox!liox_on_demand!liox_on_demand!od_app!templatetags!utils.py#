@@ -1,0 +1,563 @@
+
+import datetime
+import os
+import re
+import urllib
+
+import markdown as markdown_module
+import liox_file_analyzer as file_analyzer
+
+from django import template
+from django.conf import settings
+from django.utils import timezone
+from django.utils.safestring import mark_safe
+from django.utils.encoding import force_text
+from django.core.urlresolvers import resolve
+
+from defusedxml.minidom import parseString
+
+from ..job_utils import (
+    has_unprocessed_files,
+    has_parsing_error,
+    has_all_target_files,
+    has_all_target_products,
+)
+
+from liox_on_demand.utils import getattrs
+from ..utils import amount_to_currency, calc_business_days
+
+
+register = template.Library()
+
+
+def _markdown(value, safe=False):
+    """ Render markdown over a given value,
+    :returns: A rendered markdown
+
+    """
+    return mark_safe(markdown_module.markdown(
+        force_text(value), safe_mode=safe))
+
+@register.filter(is_safe=True)
+def markdown(value, arg=None):
+    """ from django_markdown
+    Render markdown over a given value, optionally using varios extensions.
+    Default extensions could be defined which MARKDOWN_EXTENSIONS option.
+
+    Syntax: ::
+
+        {{value|markdown}}
+
+    :returns: A rendered markdown
+
+    """
+    return _markdown(value, safe=False)
+
+@register.filter
+def truncatesmart(value, limit=80):
+    """
+    http://djangosnippets.org/snippets/1259/
+
+    Truncates a string after a given number of chars keeping whole words.
+
+    Usage:
+        {{ string|truncatesmart }}
+        {{ string|truncatesmart:50 }}
+    """
+
+    try:
+        limit = int(limit)
+    # invalid literal for int()
+    except ValueError:
+        # Fail silently.
+        return value
+
+    # Make sure it's unicode
+    value = unicode(value)
+
+    # Return the string itself if length is smaller or equal to the limit
+    if len(value) <= limit:
+        return value
+
+    # Cut the string
+    value = value[:limit]
+
+    # Break into words and remove the last
+    words = value.split(' ')[:-1]
+
+    # Join the words and return
+    return ' '.join(words) + '...'
+
+
+@register.filter
+def greaterthan(a, b):
+    return a > b
+
+
+@register.filter
+def strip_querystring(url):
+    if '?' in url:
+        return url.split('?')[0]
+    else:
+        return url
+
+
+@register.filter
+def user_total(h, key):
+    if key in h:
+        return h[key]['total']
+    else:
+        return 0
+
+
+@register.filter
+def user_month_to_date(h, key):
+    if key in h:
+        return h[key]['month_to_date']
+    else:
+        return 0
+
+
+@register.assignment_tag
+def estimate_completion(job, creation_date=None):
+    """
+    Displays due_date in localtime.
+    """
+    if not creation_date:
+        creation_date = timezone.now()
+
+    return job.get_due_date(creation_date, tz='ops').astimezone(timezone.get_current_timezone())
+
+
+def get_due_date(translation, start_date=None):
+    if not start_date:
+    
+
+
+def _reformat_xml(content):
+    whitespace = re.compile("\s+")
+
+    split_content = re.split(whitespace, content)
+
+    new_content = ' '.join(split_content)
+
+    start_tag = re.compile(">\s+")
+
+    html_string = re.sub(start_tag, '>', new_content)
+
+    end_tag = re.compile("\s+<")
+
+    html_string = re.sub(end_tag, '<', html_string)
+
+    return html_string
+
+
+def _reformat_new_line_xml(content):
+
+    new_line_end = re.compile("[*\n+]\s+</")
+    new_content = re.sub(new_line_end, '</', content)
+
+    new_line_start = re.compile(">[*\s+]*\n+\s+")
+    html_string = re.sub(new_line_start, '>', new_content)
+
+    return html_string
+
+
+class ReformatPrettyXML(template.Node):
+
+    def __init__(self, nodelist):
+        self.nodelist = nodelist
+
+    def render(self, context):
+        content = self.nodelist.render(context)
+
+        html_string = content.encode('ascii', 'xmlcharrefreplace')
+
+        html_string = _reformat_new_line_xml(html_string)
+
+        new = parseString(html_string)
+        pretty_xml_as_string = new.toprettyxml(encoding="UTF-8")
+
+        return pretty_xml_as_string
+
+
+@register.tag
+def reformat_prettyxml(parser, token):
+    """
+    Reformat XML
+    """
+    nodelist = parser.parse(('endreformat_prettyxml',))
+
+    parser.delete_first_token()
+
+    return ReformatPrettyXML(nodelist)
+
+
+class ReformatXML(template.Node):
+
+    def __init__(self, nodelist):
+        self.nodelist = nodelist
+
+    def render(self, context):
+        content = self.nodelist.render(context)
+
+        html_string = _reformat_new_line_xml(content)
+
+        text_re = re.compile('><')
+        new_content = re.sub(text_re, '>\n<', html_string)
+
+        # Not pretty printing because of unicode inside CDATA
+        # new = parseString(html_string)
+        # pretty_xml_as_string = new.toprettyxml()
+
+        return new_content
+
+
+@register.tag
+def reformat_xml(parser, token):
+    """
+    Reformat XML
+    """
+    nodelist = parser.parse(('endreformat_xml',))
+
+    parser.delete_first_token()
+
+    return ReformatXML(nodelist)
+
+
+def html_decode(s):
+    """
+    Returns the ASCII decoded version of the given HTML string. This does
+    NOT remove normal HTML tags like <p>.
+    """
+    for code in (
+            ("'", '&#39;'),
+            ('"', '&quot;'),
+            ('>', '&gt;'),
+            ('<', '&lt;'),
+            ('&', '&amp;')
+        ):
+        s = s.replace(code[1], code[0])
+    return s
+
+
+class TestXML(template.Node):
+
+    def __init__(self, nodelist):
+        self.nodelist = nodelist
+
+    def render(self, context):
+        content = self.nodelist.render(context)
+
+        html_string = _reformat_xml(content)
+
+        if 'CDATA' in html_string:
+            string = html_string.replace('&lt;![CDATA[', '').replace(']]&gt;', '')
+            string = "<![CDATA[{}]]>".format(string)
+        else:
+            string = html_decode(mark_safe(html_string))
+
+        return string
+
+
+@register.tag
+def test_xml(parser, token):
+    """
+    Reformat XML
+    """
+    nodelist = parser.parse(('endtest_xml',))
+
+    parser.delete_first_token()
+
+    return TestXML(nodelist)
+
+
+@register.filter
+def default_start_date_filter(days=30):
+    """
+    Returns current date minus :days given
+    """
+    current_date = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    return current_date - datetime.timedelta(days=days)
+
+
+@register.filter
+def first_of_month(date):
+    """ Returns a date for the first day of the month of the passed date """
+    return date.now().replace(day=1)
+
+
+@register.filter
+def get_type(value):
+    """ Get string format of variable type """
+    return type(value).__name__
+
+
+@register.filter
+def debug_var(value):
+    """ Debug template variable """
+    pass
+
+
+@register.filter
+def has_parsing_error_tag(source_files):
+    return has_parsing_error(source_files)
+
+
+@register.filter
+def has_unprocessed_files_tag(source_files):
+    return has_unprocessed_files(source_files)
+
+
+@register.assignment_tag
+def has_all_target_files_tag(job, source_files, target_locales):
+    return has_all_target_files(job, source_files, target_locales)
+
+
+@register.assignment_tag
+def has_all_target_products_tag(job, source_products, target_locales):
+    return has_all_target_products(job, source_products, target_locales)
+
+
+@register.assignment_tag
+def calculate_cost_per_translation_tag(translation):
+    """
+    Returns amount to currency.  Used with unconverted_currency:currency_used on the
+    template to show only the symbol.
+    """
+    if translation.job.service.pricing_unit_type.lower() == 'files':
+        return 1
+
+    return amount_to_currency(translation.get_price_for_units(), translation.job.quote.currency)
+
+
+@register.filter
+def strip_product_xml(xml_details):
+    try:
+        idx = xml_details.lower().index('<product>')
+    except ValueError:
+        idx = 0
+    return xml_details[idx:]
+
+
+@register.filter
+def escape_single_quote(data):
+    tokens = data.split("'")
+    return "\\'".join(tokens)
+
+
+@register.filter
+def dict_get(_dict, key):
+    return _dict and _dict.get(str(key)) or None
+
+
+@register.assignment_tag
+def render_completion_or_due_date(job, locale):
+    date_format = "%m/%d/%y"
+    if job.service.valid_file_types:  # File based jobs
+        if has_all_target_files(job, job.source_files, [locale]):
+            if job.completion_date:
+                date_text = "Completed on %s" % job.completion_date.strftime(date_format)
+            else:
+                target_file = job.target_files.filter(language=locale).order_by('creation_date').last()
+                if target_file:
+                    date = target_file.creation_date
+                    date_text = "Completed on %s" % date.strftime(date_format)
+                else:
+                    date_text = "Job in progress..."
+        elif job.due_date:
+            date_text = "Due on %s" % job.due_date.strftime(date_format)
+        else:
+            date_text = "Job in progress..."
+        return date_text
+    else:  # Product based jobs
+        if has_all_target_products(job, job.source_files, [locale]):
+            if job.completion_date:
+                date_text = "Completed on %s" % job.completion_date.strftime(date_format)
+            else:
+                target_product = job.target_products.filter(language_code=locale.code).order_by('creation_date').last()
+                if target_product:
+                    date = target_product.creation_date
+                    date_text = "Completed on %s" % date.strftime(date_format)
+                else:
+                    date_text = "Job in progress..."
+        elif job.due_date:
+            date_text = "Due on %s" % job.due_date.strftime(date_format)
+        else:
+            date_text = "Job in progress..."
+        return date_text
+
+
+@register.filter
+def get_targets_for_locale(job, locale):
+    if job.service.valid_file_types:
+        return job.target_files.filter(language=locale)
+    else:
+        return job.target_products.filter(language_code=locale.code)
+
+
+@register.filter
+def count_targets_for_locale(job, locale):
+    return get_targets_for_locale(job, locale).count()
+
+
+@register.simple_tag(takes_context=True)
+def get_form_error(context, field_name):
+    """ Searches for page_slug variable in context """
+    request = context.get('request')
+    if 'errors' in request.session and field_name in request.session['errors'].keys():
+        error = request.session['errors'].pop(field_name)
+        return error
+    else:
+        return ''
+
+
+class CustomFormNode(template.Node):
+    """
+    Accepts:
+      form - the form instance to use
+      kwargs - the variables to get from the context and use in the
+               form's intitial
+    """
+    def __init__(self, form, *args, **kwargs):
+        self.form = form
+
+        for k, v in kwargs.items():
+            setattr(self, k, template.Variable(kwargs.pop(k)))
+
+        super(CustomFormNode, self).__init__(*args, **kwargs)
+
+
+@register.simple_tag
+def get_icon(media_type):
+    """
+    Gets icon for the specific media type
+    """
+    icon_map = {
+        'doc': 'doc',
+        'video': 'video',
+        'zip': 'archive',
+        'image': 'image',
+        'slides': 'slides',
+        'audio': 'audio',
+        'ml': 'ml'  # For products
+    }
+    if media_type in icon_map:
+        return icon_map[media_type]
+    else:
+        return 'default'
+
+
+@register.filter
+def add_small_class(text, length=0):
+    """
+    (Used in class html element)
+    Appends 'small' class when the text is greater than length
+    """
+    if length == 0:
+        return ''
+    elif len(text) > int(length):
+        return "small"
+    else:
+        return ''
+
+
+@register.filter
+def truncate_filename(filename, length):
+    """
+    Returns a truncated filename that displays the file extension.
+    """
+    name, ext = os.path.splitext(filename)
+
+    return name[:length] + (name[length:] and '..') + ext
+
+
+@register.filter
+def business_days(hours):
+    """ Returns the number of business days that 'hours' translates to """
+    return calc_business_days(hours=hours)
+
+
+@register.filter
+def hours_to_days(hours, service=None):
+    """ Returns the number of days that 'hours' translates to """
+    if service and service.work_24_hour_clock:
+        hours_per_day = 24
+    else:
+        hours_per_day = settings.HOURS_PER_DAY
+    return int(round(hours / hours_per_day))
+
+def resolve_title(url):
+    """
+    Returns the View name from the given url.  The name is used as the anchor text.
+    NOTE: Prevent renaming the view just so the view_name would be clear to users, see PR# 1320.
+    """
+    try:
+        return resolve(url.split('?')[0]).view_name.replace('_', ' ').title()
+    except:
+        return ''
+
+@register.inclusion_tag('breadcrumbs.html')
+def breadcrumbs(*urls):
+    """
+    Builds up the breadcrumb based from the given urls.
+    """
+    return {'urls': ((resolve_title(url), url) for url in urls)}
+
+
+@register.simple_tag(takes_context=True)
+def url_add_query(context, **kwargs):
+    """
+    Adds parameters to request.GET based from kwargs and
+    Returns the querystring from request.GET
+    """
+    request = context.get('request')
+
+    get = request.GET.copy()
+    get.update(kwargs)
+    return u'%s?%s' % (request.path, urllib.urlencode(get, 'utf-8'))
+
+
+@register.filter
+def get_item_attr(iterable, attr_name):
+    """
+    Returns a list where each item is the result of ``getattr`` on the
+    original item.
+
+    An example shows its usefulness:
+        {{ quote.collaborators.all|get_item_attr:"get_full_name"|join:", " }}
+
+    That is a little easier than a for loop and if statements. Note that
+    callable properties will be called, just like is normal in template
+    variable resolution.
+    """
+    new_list = []
+
+    for item in iterable:
+        attr = getattrs(item, attr_name)
+
+        if callable(attr):
+            attr = attr()
+
+        new_list.append(attr)
+
+    return new_list
+
+
+@register.filter
+def utc_offset(date_time):
+    """
+    Returns offset of local datetime from UTC
+    """
+    offset = date_time.strftime('%z')
+    return '{}:{}'.format(offset[:3], offset[3:])
+
+
+@register.filter
+def get_units(obj):
+    """
+    Used to return the units of File or Translation
+    """
+    for unit_type in file_analyzer.UNIT_TYPES:
+        if getattr(obj, unit_type, 0):
+            yield "{} {}".format(unit_type, getattr(obj, unit_type, 0))

@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: ng2-component
+# key: ng2-component
+# --
+import { Component } from '@angular/core';
+
+@Component({
+  selector: '$1',
+  templateUrl: '$2.component.html',
+  styleUrls: ['$2.component.css']
+})
+export class ${2:$(replace-regexp-in-string "-" "" (capitalize yas-text))}Component {
+  $0
+}

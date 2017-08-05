@@ -1,0 +1,54 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import os
+import shutil
+import logging
+import celery
+
+from django.conf import settings
+
+from lioxon_demand.od_app.tasks import environment_kwargs
+
+from liox_on_demand.utils import get_file_name, clean_filename
+from liox_on_demand.od_app.utils import get_work_dir, make_tmp_file
+from liox_on_demand.od_zendesk.tasks import create_zendesk_ticket, upload_zendesk_attachment
+from liox_on_demand.od_zendesk.utils import get_rating_customer_feedback_payload
+
+from .models import Rating
+
+logger = logging.getLogger(__name__)
+
+
+@celery.task(**environment_kwargs)
+def submit_zendesk_ticket(rating_id):
+    """
+    Task that executes the zendesk ticket creation with the `translation.zip_file` attachment.
+    The zip_file comes from `FieldFile` then stored in a temp_file.
+    """
+    rating = Rating.objects.get(id=rating_id)
+zip_file = rating.translation.zip_file
+filename = clean_filename(zip_file.name)
+work_dir = get_work_dir(settings.TMP_DIR, str(rating.id))
+trans_zip = make_tmp_file(
+                content=zip_file.read(),
+                work_dir=work_dir,
+                filename=filename
+            )
+    ticket_data = get_rating_customer_feedback_payload(rating)
+
+    celery.chain(
+        upload_zendesk_attachment.s(trans_zip, filename, ticket_data),
+        create_zendesk_ticket.s(),
+        remove_work_dir.si(work_dir)
+    ).delay()
+
+
+@celery.task(**environment_kwargs)
+def remove_work_dir(work_dir):
+    """
+    Task to delete work_dir.
+    """
+    if os.path.exists(work_dir):
+        logger.info('Removing work_dir: %s', work_dir)
+        shutil.rmtree(work_dir)

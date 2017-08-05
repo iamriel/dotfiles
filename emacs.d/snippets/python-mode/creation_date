@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: creation_date
+# key: creation_date
+# --
+creation_date = models.DateTimeField('date created', auto_now_add=True)
+modified_date = models.DateTimeField('date last modified', auto_now=True)

@@ -1,0 +1,279 @@
+{% extends "base_manage.html" %}
+
+{% load i18n %}
+{% load quote_tags %}
+{% load job_tags %}
+{% load utils %}
+{% load file_tags %}
+{% load service_tags %}
+{% load static from staticfiles %}
+{% load crispy_forms_tags %}
+{% load tz %}
+
+{% block sub_title %}Manage Project{% endblock %}
+
+{% block body_id %}manage-project-details{% endblock %}
+
+{% block main %}
+{% breadcrumbs back_url quote.name %}
+
+{% include 'includes/messages_display.html' %}
+
+<div class="grey-bg-content content sixteen columns alpha manage-project-details-container">
+    <div class="right view-container">
+        <span>View as:</span>
+        <div class="radio-container">
+            <a href="{% url 'project_details' quote.id %}?{{ request.GET.urlencode }}">Customer</a>
+            <a class="selected" href="{% url 'manage_project_details' quote.id %}?{{ request.GET.urlencode }}">Staff</a>
+        </div>
+    </div>
+    <div class="clear"></div>
+
+    {% include "includes/manage_quote_details.html" %}
+
+    <div class="actions-container right">
+        {% if quote.is_started %}
+            {% if perms.od_app.can_cancel_quote %}
+                <a class="btn btn-red viewer left" data-reveal-id="cancel-project-modal">Cancel Project</a>
+            {% else %}
+                <a class="btn-disabled btn-mdgrey viewer left" data-toggle="tooltip" data-placement="top" title="Sorry you don't have the permission to cancel this project.">Cancel Project</a>
+            {% endif %}
+        {% endif %}
+
+        {% if quote.refundable_transactions and request.user.profile.can_issue_refund %}
+            <a class="btn btn-red viewer left" href="{% url 'issue_refund' quote.id %}">Issue Refund</a>
+        {% endif %}
+
+        <div class="email-view left">
+            <a class="btn btn-blue viewer" href="{% url 'quote_email_view' quote.id %}" target="_blank">Email Viewer</a>
+        </div>
+        {% if quote.is_unpurchased and quote.has_advanced_quoting_service %}
+            <form method="POST" action="{% url 're_quote' quote.id %}" class="requote-form left">
+                {% csrf_token %}
+                <input type="submit" data-toggle="tooltip" data-placement="top" title="This will trigger a new quoting process" class="btn btn-orange" value="Re-Quote">
+            </form>
+        {% endif %}
+        <a class="view-django-admin btn btn-orange" href="{% url 'admin:od_app_quote_change' quote.id %}" target="_blank">Django Admin Detail</a>
+        <a class="btn btn-orange" href="{% url 'project_history_list' quote.id %}">
+            Project History
+        </a>
+        {% if quote.can_be_purchased %}
+            <a class="complete-purchase btn btn-blue" href="{% url 'job_review' quote.id %}" target="_blank">
+                Complete Purchase
+            </a>
+        {% endif %}
+        {% if quote.can_be_rejected %}
+            <a id="delete-project" class="btn btn-red" href="{% url 'project_actions' quote.id %}?mode=Reject">Delete</a>
+        {% endif %}
+        {% if quote.purchased %}
+            <a class="view-receipt btn btn-grey" href="{% url 'job_receipt' quote.id %}">View Receipt</a>
+        {% endif %}
+    </div>
+    <div class="clear"></div>
+    {% for job in jobs %}
+        <div id="job-{{ job.id }}" class="job-details-container details-container">
+            <div class="status">
+                {% if request.session.async_job_complete|dict_get:job.id %}
+                    <span class='throbber-loader status-loader'></span>
+                {% endif %}
+                Status: <strong>{{ job.get_status_display }}</strong>
+            </div>
+            <h1 class="ui-accordion-header" data-job-id="{{ job.id }}"><span class="ui-icon-circle-arrow-e"></span>J{{ job.id }}: {{ job.service.name }} (<a href="{% url 'manage_service_detail' job.service.id %}">#{{ job.service.id }}</a>)</h1>
+            
+            <div id="job-details-{{ job.id }}" class="job-details"></div>
+
+        <div class="clear"></div>
+    {% endfor %}
+</div>
+
+{% endblock main %}
+
+{% block modals %}
+    {% if quote.purchased and not quote.is_cancelled and perms.od_app.can_cancel_quote %}
+    <!-- START CANCEL PROJECT MODAL -->
+    <div id="cancel-project-modal" class="reveal-modal">
+        <form action="{% url 'manage_cancel_project' quote.id %}" method="POST">
+            <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+            {% csrf_token %}
+            <h2>Project Cancellation</h2>
+            <div>Are you sure that you want to <strong>Cancel</strong> this project?</div>
+            <div class='control'>
+                <input type="submit" class="btn-orange right" value="Confirm" />
+            </div>
+        </form>
+    </div>
+    {% endif %}
+    <!-- END CANCEL PROJECT MODAL -->
+    <div id="tat-explanation-dialog" class="reveal-modal"></div>
+    {# Change Owner Modal #}
+    <div id="form-owner-{{ quote.id }}" class="reveal-modal form-owner">
+        {% crispy assign_user_form %}
+    </div>
+    {% if allow_change_owner and perms.od_app.can_change_sales_owner %}
+    <div id="form-sales-owner-{{ quote.id }}" class="reveal-modal form-owner sales-owner">
+        <div class="selector" data-id="{{ quote.id }}">
+            <div class="selector-available">
+                <h2>Available Sales Owners:</h2>
+                <select id="id_sales_owners_from" multiple="multiple">
+                    {% for sales_owner in available_sales_owners %}
+                        <option value="{{ sales_owner.id }}" translate="no" data-email="{{ sales_owner.email }}">{{ sales_owner.get_full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <ul class="selector-chooser">
+                <li><a href="{% url 'add_sales_owners' quote.id %}" class="btn-add btn-orange">Add &#62;&#62;</a></li>
+                <li><a href="{% url 'remove_sales_owners' quote.id %}" class="btn-remove btn-orange">&#60;&#60; Remove</a></li>
+            </ul>
+
+            <div class="selector-chosen">
+                <h2>Chosen Sales Owners:</h2>
+                <select id="id_sales_owners_to" multiple="multiple">
+                    {% for sales_owner in quote.sales_owners.all %}
+                        <option value="{{ sales_owner.id }}" translate="no" data-email="{{ sales_owner.email }}">{{ sales_owner.get_full_name }}</option>0
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <a class="btn-blue ok-close">Close</a>
+    </div>
+    {% endif %}
+
+    {% for job in jobs %}
+        {# Production Notes Modal #}
+        <div id="form-notes-{{ job.id }}" class="reveal-modal form-notes-{{ job.id }}">
+            <form class='add-notes' data-job-id="{{ job.id }}" action="{% url 'save_notes' job.id %}">
+                {# js for this form can be found in manage-project-details.js #}
+                {% csrf_token %}
+                <h2>Production Notes</h2>
+                {{ job.notes_form.production_notes }}
+                <div class='control'>
+                    <input type="submit" class="btn-orange right" value="Save" />
+                </div>
+            </form>
+        </div>
+        {# TMS Error Modal #}
+        {% for error in job.get_tms_errors %}
+            <div id="error-{{ forloop.counter }}-{{ job.id }}" class="reveal-modal error-{{ forloop.counter }}">
+                <h2>Message: {{ error.message|default:'None' }}</h2>
+                <ul>
+                    <li>Method: {{ error.method }}</li>
+                    <li>Status Code: {{ error.status_code }}</li>
+                    <li>URL: {{ error.url }}</li>
+                    <li>Timestamp: {{ error.timestamp }}</li>
+                    <li>Headers: {{ error.headers }}</li>
+                    <li>Content: {{ error.content }}</li>
+                </ul>
+            </div>
+        {% endfor %}
+        {# Form Actions Modals #}
+            {# TMS Start Modal #}
+            <div id="form-start-tms-{{ job.id }}" class="reveal-modal tms-ids-modal">
+                {% crispy job.tms_start_form %}
+            </div>
+            {# TMS Resubmit Modal #}
+            <div id="form-resubmit-tms-{{ job.id }}" class="reveal-modal tms-ids-modal">
+                {% crispy job.tms_resubmit_form %}
+            </div>
+            {# TMS Retrieve & Complete Modal #}
+            <div id="form-retrieve-complete-tms-{{ job.id }}" class="reveal-modal tms-ids-modal">
+                {% crispy job.tms_retrieve_complete_form %}
+            </div>
+            {% if job.is_in_progress %}
+                {# Update Due Date #}
+                <div id="form-update-due-date-{{ job.id }}" class="reveal-modal tms-ids-modal update-due-date-modal">
+                    {% include 'includes/manage_utc_help_text.html' %}
+                    {% timezone 'UTC' %}
+                        {% crispy job.due_date_form %}
+                    {% endtimezone %}
+                </div>
+                {# Notify Delay #}
+                <div id="form-notify-delay-{{ job.id }}" class="reveal-modal tms-ids-modal notify-delay-modal">
+                    {% include 'includes/manage_utc_help_text.html' %}
+                    {% timezone 'UTC' %}
+                        {% crispy job.notify_delay_form %}
+                    {% endtimezone %}
+                </div>
+            {% endif %}
+    {% endfor %}
+{% endblock modals %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/reveal.css' %}">
+<link rel="stylesheet" href="{% static 'js/lib/plupload-1.5.7/js/jquery-ui.css' %}" type="text/css" />
+<link rel="stylesheet" href="{% static 'css/django-admin-widgets.css' %}">
+<link rel="stylesheet" href="{% static 'css/jquery-ui-timepicker-addon.css' %}">
+<link rel="stylesheet" href="{% static 'css/tooltip.css' %}">
+{% endblock extra_css %}
+
+{% block extra_js %}
+<script type="text/javascript" src="{% static 'js/lib/jquery.reveal.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/jquery-ui-1.10.3/js/jquery.ui.core.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/jquery-ui-1.10.3/js/jquery.ui.widget.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/hogan.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/typeahead.min.js' %}"></script>
+{% if request.site.lang != 'en' %}
+<script type="text/javascript" src="{% static 'js/lib/jquery-ui-1.10.3/js/i18n/jquery.ui.datepicker-' %}{{ request.site.lang }}.js"></script>
+{% endif %}
+<script type="text/javascript" src="{% static 'js/lib/jquery-ui-1.10.3/js/jquery.ui.datepicker.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/jquery-ui-timepicker-addon.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/django-admin.multiselect.js' %}"></script>
+{% include 'includes/ractive-setup.html' %}
+<script type="text/javascript" src="{% static 'js/ractive/scripts/tat_explanation_dialog.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/lib/moment.js' %}"></script>
+
+<script type="text/javascript">
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+
+        var job_id = window.location.hash.substr(1);
+        var $job_container_h1 = $('.job-details-container h1');
+        if (job_id) {
+            $('div#' + job_id + ' h1').click();
+        } else if ($job_container_h1.length === 1) {
+            $job_container_h1.click();
+        }
+    });
+    var lang = {% if request.site.lang != 'en' %}"{{ request.site.lang }}"{% else %}null{% endif %};
+    $('.notify-delay-modal');
+    $('.date').datetimepicker({
+        controlType: 'select',
+        oneLine: true,
+        timeFormat: 'hh:mm TT'
+    });
+    $('input[type=submit]').on('click', function(e) {
+        var submitBtn = $(this);
+
+        // disable button to avoid clicking twice
+        $(this).closest('form').submit(function(){
+            submitBtn.attr('disabled', 'disabled');
+        });
+    });
+</script>
+
+{# Call progress checking for finish_job task #}
+<script type="text/javascript" src="{% static 'js/check-finish-job.js' %}"></script>
+{% for job in quote.jobs.all %}
+    {% if request.session.async_job_complete|dict_get:job.id %}
+        <script type="text/javascript">
+            $(function(){
+                setTimeout(function(){
+                    checkProgress({{ job.id }});
+                }, 20000);
+            });
+        </script>
+    {% endif %}
+    {% comment %}
+    <script type="text/javascrip"t>
+        initTatExplanation({{ job.id }});
+    </script>
+    {% endcomment %}
+{% endfor %}
+
+{# Create a user profile prefetch url basing from the quote's site for the assign owner form search #}
+<script type="text/javascript">
+    var USER_PREFETCH_URL = "{% url 'user_profiles' %}?site_id={{ quote.site_id }}";
+</script>
+<script type="text/javascript" src="{% static 'js/manage-project-details.js' %}"></script>
+{% endblock %}

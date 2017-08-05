@@ -1,0 +1,21 @@
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Params, Router } from '@angular/router';
+
+import { GamesService } from '../../_services';
+
+@Component({
+  selector: 'hosts-game-dashboard',
+  templateUrl: './game-dashboard.component.html',
+  styleUrls: ['./game-dashboard.component.css']
+})
+export class GameDashboardComponent implements OnInit {
+    game: any = {};
+
+    constructor(
+        private gamesService: GamesService,
+        private route: ActivatedRoute,
+    ) { }
+
+    ngOnInit() {
+    }
+}

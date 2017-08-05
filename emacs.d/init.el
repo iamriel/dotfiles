@@ -8,6 +8,13 @@
 ;;; Code:
 
 ;; Leave this here, or package.el will just add it again.
+;; (run-with-idle-timer
+;;  5 nil
+;;  (lambda ()
+;;    (setq gc-cons-threshold 1000000)
+;;    (message "gc-cons-threshold restored to %S"
+;;             gc-cons-threshold)))
+
 (package-initialize)
 
 (require 'package)
@@ -61,6 +68,7 @@
 (setq-default left-fringe-width nil)
 (setq-default indicate-empty-lines t)
 (setq-default indent-tabs-mode nil)
+(setq org-src-fontify-natively t)
 
 ;; Why did I do this? Perhaps to keep vc from meddling with things
 ;; that Magit does, but it's convenient to be able to lean on vc for
@@ -72,8 +80,9 @@
 (setq split-width-threshold nil)
 (setq custom-safe-themes t)
 ;(column-number-mode t)
-(setq tab-width 4)
+;; (setq tab-width 4)
 
+(setq exec-path-from-shell-check-startup-files nil)
 
 (defun my-minibuffer-setup-hook ()
   "Increase GC cons threshold."
@@ -86,9 +95,17 @@
 (add-hook 'minibuffer-setup-hook #'my-minibuffer-setup-hook)
 (add-hook 'minibuffer-exit-hook #'my-minibuffer-exit-hook)
 
-(defvar backup-dir "~/.emacs.d/backups/")
-(setq backup-directory-alist (list (cons "." backup-dir)))
-(setq make-backup-files nil)
+(defvar backup-dir (expand-file-name "~/.emacs.d/backup/"))
+(defvar autosave-dir (expand-file-name "~/.emacs.d/autosave/"))
+;; (setq backup-directory-alist (list (cons ".*" backup-dir)))
+;; (setq auto-save-list-file-prefix autosave-dir)
+;; ;; (setq auto-save-file-name-transforms `((".*" ,autosave-dir t)))
+;; (setq make-backup-files nil)
+
+(setq backup-directory-alist
+          `((".*" . ,backup-dir)))
+(setq auto-save-file-name-transforms
+        `((".*" ,autosave-dir t)))
 
 ;; Allow confusing functions
 (put 'narrow-to-region 'disabled nil)
@@ -100,19 +117,33 @@
 (require 'init-fonts)
 (require 'init-flycheck)
 (require 'init-dired)
+;; (require 'init-doom-themes)
 (require 'init-epc)
 (require 'init-evil)
 (require 'init-neotree)
-;(require 'init-gtags)
+(require 'init-powerline)
+;; (require 'init-gtags)
 (require 'init-theme)
 (require 'init-tdd)
+(require 'init-php)
 (require 'init-python)
 (require 'init-webmode)
 (require 'python-test)
 
+(add-to-list 'default-frame-alist '(font . "Source Code Pro for Powerline"  ))
+(set-face-attribute 'default t :font "Source Code Pro for Powerline" )
+
+(custom-set-variables
+ '(initial-frame-alist (quote ((fullscreen . maximized))))) ;; start maximized
+
 (use-package yaml-mode :ensure t :defer t)
 (use-package vimrc-mode :ensure t :defer t)
 (add-to-list 'auto-mode-alist '("\\.vim\\(rc\\)?\\'" . vimrc-mode))
+
+(use-package yasnippet
+  :config
+  (yas-global-mode 1)
+  (yas-reload-all))
 
 (use-package elpy
   :init
@@ -125,22 +156,6 @@
   )
 
 (add-hook 'compilation-filter-hook 'python-test-track-pdb-prompt)
-
-(use-package emmet-mode
-  :ensure t
-  :config
-  (add-hook 'web-mode-hook 'emmet-mode)
-  (add-hook 'sgml-mode-hook 'emmet-mode) ;; Auto-start on any markup modes
-  (add-hook 'css-mode-hook  'emmet-mode) ;; enable Emmet's css abbreviation.
-  (setq emmet-move-cursor-between-quotes t) ;; default nil
-  )
-
-;;; Emmet mode:
-(add-hook 'emmet-mode-hook
-  (lambda ()
-    (evil-define-key 'insert emmet-mode-keymap (kbd "C-S-l") 'emmet-next-edit-point)
-    (evil-define-key 'insert emmet-mode-keymap (kbd "C-S-h") 'emmet-prev-edit-point)
-  ))
 
 (use-package ansible
   :ensure t
@@ -155,12 +170,6 @@
   :ensure t
   :defer 1)
 (use-package dash :ensure t)
-
-(use-package evil-escape
-  :ensure t
-  :config
-  (evil-escape-mode 1)
-  (setq evil-escape-key-sequence "jk"))
 
 (use-package visual-fill-column :ensure t)
 
@@ -192,9 +201,8 @@
 (use-package company
   :ensure t
   :defer t
-  :init
-  (global-company-mode)
   :config
+  (global-company-mode)
   ; (setq company-tooltip-common-selection ((t (:inherit company-tooltip-selection :background "yellow2" :foreground "#c82829"))))
   ; (setq company-tooltip-selection ((t (:background "yellow2"))))
   (setq company-idle-delay 0.2)

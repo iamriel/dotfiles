@@ -9,7 +9,7 @@
     "."  'jedi:goto-definition-pop-marker
     ":"  'eval-expression
     "?"  'jedi:show-doc
-    "b"  'helm-mini             ;; Switch to another buffer
+    "b"  'balance-windows
     "B"  'magit-blame-toggle
     "c"  'comment-line
     "C"  'comment-or-uncomment-region
@@ -24,6 +24,7 @@
     "mb" 'magit-branch-and-checkout
     "mc" 'magit-checkout
     "mC" 'magit-commit
+    "mf" 'magit-fetch
     "ml" 'magit-log
     "mm" 'magit-merge
     "ms" 'magit-status
@@ -34,9 +35,15 @@
     "p"  'magit-push-to-remote
     "P"  'magit-push
     "s"  'helm-do-ag-project-root            ;; Ag search from project's root
-    "R"  (lambda () (interactive) (font-lock-fontify-buffer) (redraw-display))
-    "S"  'delete-trailing-whitespace
-    "t"  'elpy-test-django-runner
+    "S"  'helm-resume
+    "r"  'split-window-right
+    "T"  'elpy-test-django-runner
+    "te" 'web-mode-dom-errors-show
+    "th" 'web-mode-tag-highlight
+    "tm" 'web-mode-tag-match
+    "tn" 'web-mode-tag-next
+    "tp" 'web-mode-tag-previous
+    "tw" 'delete-trailing-whitespace
     "v"  'venv-workon
     "w"  'save-buffer
     "x"  'helm-M-x
@@ -77,6 +84,7 @@
     (kbd "C-u")     'evil-scroll-up
     (kbd "C-w C-w") 'other-window)
 
+  (evil-define-key 'insert global-map (kbd "C-y") 'yas-expand)
   (evil-define-key 'insert global-map (kbd "C-j") (simulate-key-press "<down>"))
   (evil-define-key 'insert global-map (kbd "C-k") (simulate-key-press "<up>"))
   (evil-define-key 'normal global-map (kbd ";") (simulate-key-press ":"))
@@ -151,6 +159,17 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
     (global-evil-leader-mode)
     (air--config-evil-leader))
 )
+
+(use-package evil-visualstar
+  :ensure t
+  :config
+  (global-evil-visualstar-mode))
+
+(use-package evil-escape
+  :ensure t
+  :config
+  (evil-escape-mode 1)
+  (setq evil-escape-key-sequence "jk"))
 
 (provide 'init-evil)
 ;;; init-evil.el ends here
