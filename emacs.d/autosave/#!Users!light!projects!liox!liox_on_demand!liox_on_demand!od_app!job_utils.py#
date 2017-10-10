@@ -4,6 +4,8 @@ import logging
 import os
 import shutil
 import urllib
+import requests
+import tempfile
 
 from contextlib import contextmanager
 from decimal import Decimal
@@ -12,6 +14,13 @@ from django.core.files import File as PFile
 from django.utils import timezone
 from django.utils.encoding import smart_str
 from zipfile import ZipFile
+
+from liox_analyzer.utils import (
+    extension_from_filename,
+    media_type_from_extension,
+)
+
+from liox_on_demand.od_app.satisfaction import job_is_risky
 
 from .exceptions import NotificationAlreadySent
 
@@ -32,14 +41,6 @@ def has_unprocessed_files(source_files):
     return False
 
 
-def has_parsing_error(source_files):
-    """
-    Returns True if one or more source files has failed parsing
-    source_file.status == STATUS_ANALYSIS_FAILED
-    """
-    return any([source_file.analysis_failed for source_file in iter(source_files)])
-
-
 def is_analyzing(source_files):
     """
     Source files are still analyzing, returns True if:
@@ -51,26 +52,6 @@ def is_analyzing(source_files):
         if source_file.status == source_file.STATUS_ANALYZING:
             has_analyzing = True
     return has_unprocessed_files(source_files) and has_analyzing
-
-
-def has_blank_analyzed_files(source_files):
-    from liox_file_analyzer.processors.utils import (
-        extension_from_filename,
-        media_type_from_extension,
-    )
-    for source_file in source_files:
-        extension = extension_from_filename(source_file.original_filename)
-        if source_file.is_analyzed and source_file.units() == 0 \
-           and media_type_from_extension(extension):
-            return True
-    return False
-
-
-def has_analyzed_files_with_units(source_files):
-    for source_file in iter(source_files):
-        if not source_file.is_analyzed and source_file.units() <= 0:
-            return False
-    return True
 
 
 def has_all_target_files(job, source_files=None, target_locales=None):
@@ -146,11 +127,12 @@ def calculate_cost_for_units(service, source_locale, target_locales, units, org=
     """
     Basic Equation: Total Units of all Source Files * Service Unit Cost
     """
-    cost = _decimals(units * service.as_usd('per_unit_rate'))
+    cost = _decimals(units * service.as_usd('source_processing_rate'))
 
     for target_locale in target_locales:
         penalty_value = cost_multiplier(source_locale, target_locale, org=org)
-        cost += penalty_value * _decimals(units) * _decimals(service.as_usd('per_language_rate'), 3)
+        rate = service.rate_for_locale_pair(source_locale, target_locale, org)
+        cost += penalty_value * _decimals(units) * _decimals(rate, 3)
 
     return _decimals(cost, 3)
 
@@ -230,17 +212,6 @@ def get_total_units(service, source_files, source_products, unit_type_override='
         'total_units': total_raw_units,
         'effort_units': total_effort_units
     }
-
-
-def get_file_bytes(source_files):
-    total = 0
-    for file_obj in source_files:
-        try:
-            total += file_obj.file_size
-        except TypeError:
-            # probably means that i don't have an attachment. bad data
-            pass
-    return total
 
 
 def has_unprocessed_files_and_parsing_error(source_files):
@@ -346,6 +317,10 @@ def create_initial_job(service, site, quote, **kwargs):
 
     job_instance = Job.objects.create(**create_kwargs)
 
+    # Update the job's quality_risk field
+    job_instance.quality_risk = job_is_risky(job_instance)
+    job_instance.save()
+
     # Assign default_source_locale if job_instance has no source_locale
     if not getattr(job_instance, 'source_locale') and quote.owner:
         job_instance.source_locale = quote.owner.profile.default_source_lang
@@ -354,6 +329,43 @@ def create_initial_job(service, site, quote, **kwargs):
     quote.jobs.add(job_instance)
 
     return job_instance
+
+
+def generate_target_files_zip(target_files=None, temp_zip_name=''):
+    """
+    Generates a zip file from the retrieved target_files from S3.
+    Returns the zip file path for saving to a file field.
+    """
+    from .utils import retrieve_file_from_url, get_available_pathname
+
+    temp_zip_file_path = os.path.join(settings.TMP_DIR, temp_zip_name)
+
+    # Remove temp zip file if they already exist
+    if os.path.isfile(temp_zip_file_path):
+        os.remove(temp_zip_file_path)
+
+    with ZipFile(temp_zip_file_path, 'w', allowZip64=True) as tmp_zip:
+
+        for target_file in target_files:
+            with tempfile.NamedTemporaryFile(dir=settings.TMP_DIR) as f:
+                target_file_path = f.name
+
+                # Get target file from s3 and save to tempfile
+                if target_file.attach:
+                    retrieve_file_from_url(target_file.attach.url, target_file_path)
+
+                pathname = os.path.join(
+                    target_file.language.code,
+                    target_file.original_filename
+                )
+                arc_pathname = get_available_pathname(pathname, tmp_zip.namelist())
+                # Add target file to zip
+                tmp_zip.write(
+                    target_file_path,
+                    arc_pathname
+                )
+
+    return temp_zip_file_path
 
 
 def get_target_files_zip(target_files):
@@ -367,8 +379,6 @@ def get_target_files_zip(target_files):
 
     Returns the zip file path
     """
-    from liox_on_demand.od_app.utils import retrieve_file_from_url
-
     job = target_files.first().job
 
     if job.unbundleable:
@@ -382,64 +392,11 @@ def get_target_files_zip(target_files):
         return
 
     logger.info('Creating zip for target files for completed job #%d', job.id)
-
-    # Set temp names for zip file and work dir
-    temp_file_name = 'job_%s_target_files.zip' % job.id
-    temp_dir_name = 'job_%s_target_upload' % job.id
-
-    # Set temp paths for zip file and work dir
-    temp_zip_file_path = os.path.join(
-        settings.TMP_DIR,
-        temp_file_name
-    )
-    temp_work_dir_path = os.path.join(
-        settings.TMP_DIR,
-        temp_dir_name
-    )
-
-    # Remove temp zip file and work dir if they already exist
-    if os.path.isfile(temp_zip_file_path):
-        os.remove(temp_zip_file_path)
-    if os.path.exists(temp_work_dir_path):
-        shutil.rmtree(temp_work_dir_path)
-
-    # Create temp work dir
-    os.makedirs(temp_work_dir_path)
-
-    # Get target files from s3 and save to temp work dir
-    # After saving, zip target files
-    
     try:
-        with ZipFile(temp_zip_file_path, 'w', allowZip64=True) as my_zip:
-            for target_file in target_files:
-                # Set target file paths
-                original_filename = target_file.original_filename
-                target_file_path = os.path.join(
-                    temp_work_dir_path,
-                    original_filename
-                )
-
-                # Get target file from s3 and save to temp work dir
-                if target_file.attach:
-                    retrieve_file_from_url(target_file.attach.url, target_file_path)
-
-                # Set subdirectory for target file
-                subdirectory = target_file.language.code
-                target_file_name = original_filename
-                archive_name = os.path.join(
-                    subdirectory,
-                    target_file_name
-                )
-                # Add target file to zip
-                my_zip.write(
-                    target_file_path,
-                    archive_name
-                )
-        # Remove temp work dir
-        shutil.rmtree(temp_work_dir_path)
-
+        # Set temp name for zip file.
+        temp_zip_name = 'job_%s_target_files.zip' % job.id
         # Return temp zip file path
-        return temp_zip_file_path
+        return generate_target_files_zip(target_files, temp_zip_name)
 
     except Exception as e:
         # Create dict with the Exception Errors
@@ -484,11 +441,12 @@ def check_job_valid_for_delivery(job, target_files, raise_error=False):
     return True
 
 
-def generate_target_files_zip(target_files, raise_error=False):
+def generate_job_delivery_zip(target_files, raise_error=False):
     """
     Generates target files zip for completed jobs
     This function is used from command `generate_target_files_zip`
     """
+    # TODO: Determine if method can be removed.
     job = target_files.first().job
     if not check_job_valid_for_delivery(job, target_files, raise_error):
         return False
@@ -509,16 +467,6 @@ def generate_target_files_zip(target_files, raise_error=False):
     return True
 
 
-def get_estimated_completion(job, creation_date=None):
-    """
-    Returns estimated job completion date which is calculated based on ops tz.
-    """
-    if not creation_date:
-        creation_date = timezone.now()
-
-    return job.get_due_date(started_date=creation_date, tz='ops')
-
-
 def create_translation_zip(translation):
     """
     Creates a zip file for the translation specified using all the target_files
@@ -537,27 +485,8 @@ def create_translation_zip(translation):
         logger.info('NOT creating translation zip for Job: %s, translation: %s since it is oversized', job.id, locale_code)
         return
 
-    temp_file_name = 'job_%s_translation_%s.zip' % (job.id, locale_code)
-    temp_dir_name = 'job_%s_translation_%s' % (job.id, locale_code)
-    temp_zip_file = os.path.join(settings.TMP_DIR, temp_file_name)
-    temp_work_dir_path = os.path.join(settings.TMP_DIR, temp_dir_name)
-
-    # Remove temp zip file and work dir if they already exist
-    if os.path.isfile(temp_zip_file):
-        os.remove(temp_zip_file)
-    if os.path.exists(temp_work_dir_path):
-        shutil.rmtree(temp_work_dir_path)
-
-    # Create temp work dir
-    if not os.path.exists(temp_work_dir_path):
-        os.makedirs(temp_work_dir_path)
-
-    with ZipFile(temp_zip_file, 'w', allowZip64=True) as tmp_zip:
-        for target_file in target_files:
-            original_filename = target_file.original_filename
-            target_file_path = os.path.join(temp_work_dir_path, original_filename)
-            urllib.urlretrieve(target_file.attach.url, target_file_path)
-            tmp_zip.write(target_file_path, os.path.join(locale_code, original_filename))
+    temp_zip_name = 'job_%s_translation_%s.zip' % (job.id, locale_code)
+    temp_zip_file = generate_target_files_zip(target_files, temp_zip_name)
 
     # Save zip into translation.zip_file
     zip_file = PFile(open(temp_zip_file, 'rb'))
@@ -565,7 +494,6 @@ def create_translation_zip(translation):
     translation.save()
     # Remove temp file and temp dir
     os.remove(temp_zip_file)
-    shutil.rmtree(temp_work_dir_path)
 
 
 def create_job_reference_files_zip(job_id):
@@ -677,3 +605,36 @@ def safe_notify(job):
     yield
     job.completion_notification_date = timezone.now()
     job.save(update_fields=['completion_notification_date'])
+
+
+from liox_on_demand.od_app.notification_events import NOTIFICATION_EVENT_PROJECT_COMPLETE
+from liox_on_demand.notifications.signals import send_notification_signal
+from liox_on_demand.notifications.models import Notification
+from liox_on_demand.od_app.models import Job
+from liox_on_demand.od_app.job_utils import safe_notify
+from liox_on_demand.od_app.exceptions import NotificationAlreadySent
+
+quote_ids = [
+    263192,
+    260485,
+    260484,
+    262938,
+    260490,
+    260328,
+    260564,
+    260565,
+    261901,
+    261234,
+    264605,
+    266859,
+]
+
+for quote in Quote.objects.filter(id__in=quote_ids):
+    for job in quote.jobs.filter(~Q(notify_complete_url=''), completion_notification_date__isnull=False)
+        Notification.objects.create(content_object=job, recipient=job.notify_complete_url, event=NOTIFICATION_EVENT_PROJECT_COMPLETE)
+        with ignore(NotificationAlreadySent), safe_notify(job):
+            send_notification_signal.send(
+                sender=Job,
+                notification_event_name=NOTIFICATION_EVENT_PROJECT_COMPLETE,
+                obj=job,
+            )

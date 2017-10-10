@@ -97,9 +97,9 @@
 
 (defvar backup-dir (expand-file-name "~/.emacs.d/backup/"))
 (defvar autosave-dir (expand-file-name "~/.emacs.d/autosave/"))
-;; (setq backup-directory-alist (list (cons ".*" backup-dir)))
-;; (setq auto-save-list-file-prefix autosave-dir)
-;; ;; (setq auto-save-file-name-transforms `((".*" ,autosave-dir t)))
+(setq backup-directory-alist (list (cons ".*" backup-dir)))
+(setq auto-save-list-file-prefix autosave-dir)
+(setq auto-save-file-name-transforms `((".*" ,autosave-dir t)))
 ;; (setq make-backup-files nil)
 
 (setq backup-directory-alist
@@ -139,6 +139,12 @@
 (use-package yaml-mode :ensure t :defer t)
 (use-package vimrc-mode :ensure t :defer t)
 (add-to-list 'auto-mode-alist '("\\.vim\\(rc\\)?\\'" . vimrc-mode))
+
+;; (use-package rjsx-mode
+;;   :ensure t
+;;   :config
+;;     (add-to-list 'auto-mode-alist '("\\.js?\\'" . rjsx-mode))
+;;   )
 
 (use-package yasnippet
   :config

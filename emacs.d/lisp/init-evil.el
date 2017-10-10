@@ -13,7 +13,7 @@
     "B"  'magit-blame-toggle
     "c"  'comment-line
     "C"  'comment-or-uncomment-region
-    "d"  'kill-this-buffer
+    "d"  'rjsx-delete-creates-full-tag
     "D"  'magit-discard
     "es" 'eshell
     "f"  'helm-imenu            ;; Jump to function in buffer
@@ -21,6 +21,7 @@
     "h"  'fontify-and-browse    ;; HTML-ize the buffer and browse the result
     "ic" 'projectile-invalidate-cache
     "im" 'highlight-indentation-mode
+    "k"  'kill-this-buffer
     "mb" 'magit-branch-and-checkout
     "mc" 'magit-checkout
     "mC" 'magit-commit

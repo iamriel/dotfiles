@@ -5,7 +5,8 @@
 ;;
 ;;; Code:
 
-(require 'ng2-mode)
+(use-package ng2-mode
+  :ensure t)
 
 (defun setup-tide-mode ()
   (interactive)
